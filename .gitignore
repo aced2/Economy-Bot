@@ -1,0 +1,8 @@
+token.json
+database_login.json
+test.py
+.vscode
+__pycache__
+venv
+cogs/__pycache__
+database/__pycache__
