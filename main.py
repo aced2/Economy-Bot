@@ -33,8 +33,7 @@ class EconomyBot(commands.Bot):
     
     async def on_ready(self):
         #Load cogs
-        #ADD ERROR HANDLING COG BACK IN
-        cogs = ["cogs.game", "cogs.player", "cogs.error_handling"]
+        cogs = ["cogs.game", "cogs.player", "cogs.error_handling", "cogs.admin"]
         for cog in cogs:
             self.load_extension(cog)
         
@@ -56,8 +55,3 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("Closing Loop")
         loop.close()
-
-    
-
-    
-    
