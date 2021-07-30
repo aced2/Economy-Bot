@@ -1,4 +1,5 @@
 import discord
+import typing
 
 from discord.utils import get
 from discord.ext import tasks, commands
@@ -10,13 +11,18 @@ class Game(commands.Cog):
 
     time_ = "night"
     classes_stats = {
-        "warrior": {"atk": 5, "hp": 20, "armor": 5, "gold_per_hunt": {"low": 20, "high": 30}},
-        "mage": {"atk": 11, "hp": 10, "armor": 0, "gold_per_hunt": {"low": 23, "high": 26}},
-        "ninja": {"atk": 8, "hp": 12, "armor": 35, "gold_per_hunt": {"low": 25, "high": 25}},
-        "werewolf": {"atk": 3, "hp": 30, "armor": 5, "gold_per_hunt": {"low": 20, "high": 30}},
-        "vampire": {"atk": 9, "hp": 7, "armor": 4, "gold_per_hunt": {"low": 23, "high": 36}},
-        "zombie": {"atk": 5, "hp": 10, "armor": 5, "gold_per_hunt": {"low": 25, "high": 25}}
+        "warrior": {"atk": 5, "hp": 20, "armor": 5, "gold_per_hunt": {"low": 20, "high": 30}, "emoji": ":man_supervillain:"},
+        "mage": {"atk": 11, "hp": 10, "armor": 0, "gold_per_hunt": {"low": 23, "high": 26}, "emoji": ":man_mage:"},
+        "ninja": {"atk": 8, "hp": 12, "armor": 35, "gold_per_hunt": {"low": 25, "high": 25}, "emoji": ":ninja"},
+        "werewolf": {"atk": 3, "hp": 30, "armor": 5, "gold_per_hunt": {"low": 20, "high": 30}, "emoji": ":wolf:"},
+        "vampire": {"atk": 9, "hp": 7, "armor": 4, "gold_per_hunt": {"low": 23, "high": 36}, "emoji": ":man_vampire:"},
+        "zombie": {"atk": 5, "hp": 10, "armor": 5, "gold_per_hunt": {"low": 25, "high": 25}, "emoji": ":man_zombie:"}
     }
+
+    food_prices = {"carrot": 3, "corn": 5, "watermelon": 7, "strawberry": 5}
+
+    shop_items = {"water": {"price": 24, "description": "Use $farm to double profits when holding water."}}
+
 
     def __init__(self, bot):
         self.bot = bot
@@ -35,8 +41,11 @@ class Game(commands.Cog):
     async def on_member_remove(self, member):
         '''When user leaves server, remove them from database'''
 
-        delete_query = "DELETE FROM user_info WHERE id = $1"
-        await self.bot.db.execute(delete_query, member.id)
+        delete_user_query = "DELETE FROM user_info WHERE id = $1"
+        delete_food_query = "DELETE FROM user_food WHERE id = $1"
+        await self.bot.db.execute(delete_user_query, member.id)
+        await self.bot.db.execute(delete_food_query, member.id)
+
         print(f"NAME: {member.name} ID: {member.id} REMOVED FROM DATABASE")
     
     @commands.command()
@@ -47,7 +56,7 @@ class Game(commands.Cog):
                     :crossed_swords: = Attack\n:heart: = HP\n:shield: = Armor\n:coin: = Gold per Hunt
                     \nDay -> Warrior, Mage, Ninja x2 Gold\nNight -> Werewolf, Vampire, Zombie x2 Gold
                     \nUse **$time** for more info
-                    Use **$select class_name** to select a Class\n\u200b
+                    Use **$select [class]** to select a Class\n\u200b
                     """
         
         embed = discord.Embed(
@@ -129,11 +138,88 @@ class Game(commands.Cog):
         
         await message.delete(delay=10)
         await ctx.message.delete(delay=10)
+    
+    @commands.command()
+    async def profile(self, ctx, *, user: discord.Member):
+        '''Get profile of a user'''
+
+        roles = "\n".join(role.mention for role in user.roles[1:])
+        joined = user.joined_at.strftime(r"%A, %d. %B %Y %I:%M%p")
+        
+        #Choose status color
+        if user.status == discord.Status.online:
+            status_string = "```diff\n+ Online +\n```"
+        elif user.status == discord.Status.idle:
+            status_string = "```fix\n< Idle >\n```"
+        elif user.status in [discord.Status.dnd, discord.Status.do_not_disturb]:
+            status_string = "```diff\n- Do not distrub -\n```"
+
+        user_data = await self.bot.db.fetchrow("SELECT * FROM user_info WHERE id = $1", user.id)
+        food_data = await self.bot.db.fetchrow("SELECT * FROM user_food WHERE id = $1", user.id)
+        
+        #Check if user is in database
+        if user_data == None:
+            await ctx.send(f"{ctx.author.mention} {user.name} has not selected a Class yet.", delete_after=10)
+            await ctx.message.delete(delay=10)
+            return
+
+        user_class = user_data["class"].capitalize()
+        user_gold = str(user_data["gold"]) + ":coin:"
+        food_string = f"{food_data['carrot']} :carrot: {food_data['corn']} :corn: {food_data['watermelon']} :watermelon: {food_data['strawberry']} :strawberry: {food_data['water']} :droplet:"
+
+        embed = discord.Embed(title=user.name, description=f"**Joined on:** {joined}")
+        embed.set_thumbnail(url=user.avatar_url)
+        embed.add_field(name="Class", value=user_class, inline=True)
+        embed.add_field(name="Total Gold", value=user_gold, inline=True)
+        embed.add_field(name="\u200b", value="\u200b", inline=True)
+        embed.add_field(name="Roles", value=roles, inline=True)
+        embed.add_field(name="Status", value=status_string, inline=True)
+        embed.add_field(name="\u200b", value="\u200b", inline=True)
+        embed.add_field(name="Food Inventory", value=food_string, inline=True)
+        embed.set_footer(text=f"ID: {user.id}")
+        
+        await ctx.send(embed=embed)
+    
+    @commands.command()
+    async def shop(self, ctx):
+        '''Display shop items'''
+
+        embed = discord.Embed(title="Shop", description="Use $buy [item] to buy an item")
+        for item in Game.shop_items.keys():
+            embed.add_field(name=f"{item.capitalize()} - {Game.shop_items[item]['price']} :coin:", value=Game.shop_items[item]['description'])
+        
+        await ctx.send(embed=embed)
+    
+    @commands.command()
+    async def buy(self, ctx, *, item):
+        '''User can buy an item'''
+
+        if item not in Game.shop_items.keys():
+            await ctx.send(f"{ctx.author.mention} Invalid Item. Use $shop to see list of items", delete_after=10)
+            await ctx.message.delete(delay=10)
+            return
+        
+        user_gold = (await self.bot.db.fetchrow("SELECT gold FROM user_info WHERE id = $1", ctx.author.id))["gold"]
+        if item == "water":
+            if user_gold < Game.shop_items["water"]["price"]:
+                await ctx.send(f"{ctx.author.mention} You do not have enough money to buy this.", delete_after=10)
+                await ctx.message.delete(delay=10)
+                return
+
+            user_water = (await self.bot.db.fetchrow("SELECT water FROM user_food WHERE id = $1", ctx.author.id))["water"]
+            user_water += 1 
+            user_gold -= Game.shop_items["water"]["price"]
+            await self.bot.db.execute("UPDATE user_info SET gold = $1 WHERE id = $2", user_gold, ctx.author.id)
+            await self.bot.db.execute("UPDATE user_food SET water = $1 WHERE id = $2", user_water, ctx.author.id)
+            await ctx.send(f"{ctx.author.mention} Water purchase. Your balance is now {user_gold} :coin:")
+            return
 
     @commands.command()
     async def test(self, ctx):
         #test function for testing
-        await self.bot.db.execute("DELETE FROM user_info WHERE id = $1", 1234)
+        x = dict(await self.bot.db.fetchrow("SELECT * FROM user_food WHERE id = $1", ctx.author.id))
+        for i in x.keys():
+            print(i, x[i])
 
 
 def setup(bot):

@@ -1,10 +1,12 @@
 import discord
 import random
+import typing
 
 from discord.ext import commands
 from discord.utils import get
 from cogs.game import Game
 from math import ceil
+from random import choices
 
 
 class Player(commands.Cog):
@@ -28,12 +30,17 @@ class Player(commands.Cog):
             return
 
         #Add user to database and give Class Selected role
-        query = "INSERT INTO user_info (id, class, atk, hp, armor, gold) VALUES ($1, $2, $3, $4, $5, $6);"
+        user_query = "INSERT INTO user_info (id, class, atk, hp, armor, gold) VALUES ($1, $2, $3, $4, $5, $6);"
         user_id = ctx.author.id
         selected_class = message.lower()
         atk, hp, armor = Game.classes_stats[selected_class]["atk"], Game.classes_stats[selected_class]["hp"], Game.classes_stats[selected_class]["armor"]
         gold = 0
-        await self.bot.db.add_user(query, user_id, selected_class, atk, hp, armor, gold)
+        await self.bot.db.add_user(user_query, user_id, selected_class, atk, hp, armor, gold)
+        
+        #Add user to food table
+        food_query = "INSERT INTO user_food (id, carrot, corn, watermelon, strawberry, water) VALUES ($1, 0, 0, 0, 0, 0);"
+        await self.bot.db.add_user(food_query, user_id)
+
         print("USER ADDED")
         await ctx.author.add_roles(get(ctx.author.guild.roles, id=868589512354332793))
         await ctx.author.add_roles(get(ctx.author.guild.roles, name=selected_class.capitalize()))
@@ -41,7 +48,7 @@ class Player(commands.Cog):
         await ctx.send(f"{ctx.author.mention} You haven chosen the {selected_class.capitalize()} Class. Use $hunt to begin earining gold!")
 
     @commands.command()
-    @commands.cooldown(rate=1, per=10, type=commands.BucketType.user)
+    @commands.cooldown(rate=1, per=120, type=commands.BucketType.user)
     @commands.has_role(868589512354332793)
     async def hunt(self, ctx):
         '''Hunt for gold'''
@@ -116,6 +123,33 @@ class Player(commands.Cog):
 
         await ctx.send(f"{ctx.author.mention} You stole {amount_stolen} :coin: from {opponent.name}! You now have {user_gold} :coin:.")
 
+    @commands.command()
+    @commands.cooldown(rate=1, per=120)
+    @commands.has_role(868589512354332793)
+    async def search(self, ctx, *, location):
+        '''Search a location for items'''
+
+        locations = ["farm", "store"]
+        if location not in locations:
+            await ctx.send(f"{ctx.author.mention} That is not a valid location.", delete_after=10)
+            await ctx.message.delete(delay=10)
+            return
+        
+        if location == "farm":
+            k = 10 #subject to change
+            foods = ["carrot", "corn", "watermelon", "strawberry"]
+            amount = choices(foods, weights=[5,2,1,2], k=k)
+            await self.bot.db.execute(
+                '''
+                UPDATE user_food 
+                SET carrot = carrot + $1, corn = corn + $2, watermelon = watermelon + $3, strawberry = strawberry + $4 
+                WHERE id = $5;
+                ''',
+                amount.count("carrot"), amount.count("corn"), amount.count("watermelon"), amount.count("strawberry"), ctx.author.id
+                )
+            
+            await ctx.send(f"{ctx.author.mention} You found {amount.count('carrot')} :carrot: {amount.count('corn')} :corn: {amount.count('watermelon')} :watermelon: {amount.count('strawberry')} :strawberry:")
+        
 
 def setup(bot):
     bot.add_cog(Player(bot))

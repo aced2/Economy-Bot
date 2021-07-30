@@ -14,7 +14,7 @@ class ErrorHandling(commands.Cog):
         print(f"Error: {error} Raised By: {ctx.command}")
         
         if isinstance(error, commands.CommandNotFound):
-            await ctx.send(f"{ctx.author.mention} Pleas enter a valid command.", delete_after=10)
+            await ctx.send(f"{ctx.author.mention} Please enter a valid command.", delete_after=10)
             await ctx.message.delete(delay=10)
 
         if isinstance(error, commands.MissingRequiredArgument):
@@ -31,7 +31,7 @@ class ErrorHandling(commands.Cog):
                 await ctx.message.delete(delay=10)
         
         if isinstance(error, commands.MemberNotFound):
-            await ctx.send(f"{ctx.author.mention} We could not find {error.argument}. Please input a valid user.", delete_after=10)
+            await ctx.send(f"{ctx.author.mention} There is no user {error.argument}. Please input a valid user.", delete_after=10)
             await ctx.message.delete(delay=10)
         
         if isinstance(error, commands.CommandInvokeError):
@@ -40,6 +40,13 @@ class ErrorHandling(commands.Cog):
                 if ctx.command.name == "button":
                     await ctx.send(f"{ctx.author.mention} You did not select an option. Buttons are now inactive.")
 
-    
+        if isinstance(error, commands.NotOwner):
+            await ctx.send(f"{ctx.author.mention} Only the owner can use this command.", delete_after=10)
+            await ctx.message.delete(delay=10)
+
+        if isinstance(error, commands.UserNotFound):
+            await ctx.send(f"{ctx.author.mention} User not found.", delete_after=10)
+            await ctx.message.delete(delay=10)
+
 def setup(bot):
     bot.add_cog(ErrorHandling(bot))
