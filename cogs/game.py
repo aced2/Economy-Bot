@@ -128,7 +128,9 @@ class Game(commands.Cog):
             #Remove Roles then delete user from Database
             for role in ctx.author.roles[1:]:
                 await ctx.author.remove_roles(role)
+            
             await self.bot.db.execute("DELETE FROM user_info WHERE id = $1", ctx.author.id)
+            await self.bot.db.execute("DELETE FROM user_food WHERE id = $1", ctx.author.id)
             
             new_embed = discord.Embed(title="Account Deleted", description=f"{ctx.author.mention} Your account has been deleted. Use $classes to select a class.")
             await message.edit(embed=new_embed, components=[])
@@ -142,7 +144,7 @@ class Game(commands.Cog):
     @commands.command()
     async def profile(self, ctx, *, user: discord.Member):
         '''Get profile of a user'''
-
+        
         roles = "\n".join(role.mention for role in user.roles[1:])
         joined = user.joined_at.strftime(r"%A, %d. %B %Y %I:%M%p")
         
@@ -216,11 +218,8 @@ class Game(commands.Cog):
 
     @commands.command()
     async def test(self, ctx):
-        #test function for testing
-        x = dict(await self.bot.db.fetchrow("SELECT * FROM user_food WHERE id = $1", ctx.author.id))
-        for i in x.keys():
-            print(i, x[i])
-
+        await ctx.message.delete(delay=5)
+        await ctx.send("Bot message", delete_after=5)
 
 def setup(bot):
     bot.add_cog(Game(bot))

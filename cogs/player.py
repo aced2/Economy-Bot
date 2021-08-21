@@ -124,7 +124,7 @@ class Player(commands.Cog):
         await ctx.send(f"{ctx.author.mention} You stole {amount_stolen} :coin: from {opponent.name}! You now have {user_gold} :coin:.")
 
     @commands.command()
-    @commands.cooldown(rate=1, per=120)
+    @commands.cooldown(rate=1, per=120, type=commands.BucketType.user)
     @commands.has_role(868589512354332793)
     async def search(self, ctx, *, location):
         '''Search a location for items'''
@@ -149,7 +149,49 @@ class Player(commands.Cog):
                 )
             
             await ctx.send(f"{ctx.author.mention} You found {amount.count('carrot')} :carrot: {amount.count('corn')} :corn: {amount.count('watermelon')} :watermelon: {amount.count('strawberry')} :strawberry:")
+    
+    @commands.command()
+    @commands.has_role(868589512354332793)
+    async def farm(self, ctx):
+        '''Sell farm items'''
+
+        user_foods = await self.bot.db.fetchrow(
+            '''
+            SELECT * FROM user_food WHERE id = $1;
+            ''',
+            ctx.author.id
+        )
+        total = 0
+        user_gold = (await self.bot.db.fetchrow("SELECT gold FROM user_info WHERE id = $1", ctx.author.id))['gold']
+        for food, price in Game.food_prices.items():
+            total += user_foods[food] * price
+
+        #If water available, total * 2
+        user_water = user_foods['water']
+        if user_water > 0:
+            total *= 2
+            user_water -= 1
         
+        user_gold += total
+
+        await self.bot.db.execute(
+            '''
+            UPDATE user_info SET gold = $1 WHERE id = $2;
+            ''',
+            user_gold, ctx.author.id
+        )
+
+        await self.bot.db.execute(
+            '''
+            UPDATE user_food 
+            SET carrot = 0, corn = 0, watermelon = 0, strawberry = 0, water = $1
+            WHERE id = $2;
+            ''',
+            user_water, ctx.author.id
+        )
+
+        await ctx.send(f"{ctx.author.mention} You earned {total} :coin:. Your total is now {user_gold}")
+
 
 def setup(bot):
     bot.add_cog(Player(bot))
