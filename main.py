@@ -33,7 +33,7 @@ class EconomyBot(commands.Bot):
     
     async def on_ready(self):
         #Load cogs
-        cogs = ["cogs.game", "cogs.player", "cogs.error_handling", "cogs.admin"]
+        cogs = ["cogs.game", "cogs.player", "cogs.error_handling", "cogs.admin", "cogs.mini_games"]
         for cog in cogs:
             self.load_extension(cog)
         

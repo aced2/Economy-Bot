@@ -18,4 +18,7 @@ Commands:
 >* $rob [user] -> rob a user in the server for gold
 >* $search [location] -> search a location for goods
     >>* Locations: farm
+>* $farm -> sell farm goods (x2 gold if water in profile)
 
+> Mini Games:
+>* $highlow [bet_amount] -> guess if number is higher, lower, or exact 
